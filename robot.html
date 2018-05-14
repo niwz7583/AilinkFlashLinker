@@ -1,0 +1,500 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>电话机器人管理Demo页</title>
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="-1">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="cache-control" content="no-store">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />  <!--IE11下的支持-->
+    <!--步骤1、引用以下5个js文件-->
+    <link href="jquery-ui.css" rel="stylesheet" type="text/css" />
+    <script language="javascript" type="text/javascript" src="jquery-3.2.1.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery-ui.js"></script>
+    <script language="javascript" content-type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery-ui.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery.tmpl.js"></script>
+    <script language="javascript" type="text/javascript" src="base64.js"></script>
+    <script language="javascript" content-type="text/javascript">
+        Date.prototype.Format = function (fmt) { //author: meizz
+            var o = {
+                "M+": this.getMonth() + 1, //月份
+                "d+": this.getDate(), //日
+                "h+": this.getHours(), //小时
+                "m+": this.getMinutes(), //分
+                "s+": this.getSeconds(), //秒
+                "q+": Math.floor((this.getMonth() + 3) / 3), //季度
+                "S": this.getMilliseconds() //毫秒
+            };
+            if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+            for (var k in o)
+                if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+            return fmt;
+        }
+
+        /*
+       显示日志输出。
+       */
+        function Logger(text) {
+            var now = new Date().Format("yyyy-MM-dd hh:mm:ss.S");
+            $("#log").append("[" + now + "] " + text + "<br/>");
+            console.log("[" + now + "] " + text);
+        }
+        /*提示对话框*/
+        function softAlert(message, title) {
+            if (title + '' == '')
+                title = "系统提示";
+            $("#message_text").text(message);
+            $("#message").dialog('option', 'title', title);
+            $("#message").dialog('open');
+        }
+        //页面初始化加载
+        $(document).ready(function () {
+            //初始消息对话框
+            $("#message").dialog({
+                autoOpen: false,
+                resizable: false,
+                buttons: {
+                    "Ok": function () {
+                        $(this).dialog("close");
+                    }
+                }
+            });
+        });
+        /*
+        向服务端发送命令请求
+        */
+        function lxkj_send_packet(jsonData, callback) {
+            var encString = new Base64().encode(jsonData);
+            var apiArgs = {
+                appkey: $("#tbAppKey").val(),
+                objstring: jsonData,
+                objbase64: encString
+            };
+            Logger("Post command:" + jsonData);
+            //
+            $.ajax({
+                url: 'http://192.168.1.253:8888/robot.ashx?operate=command',
+                data: apiArgs,
+                type: 'POST',
+                dataType: 'json',
+                success: function (data, textStatus, jqXHR) {
+                    console.log(data);
+                    Logger("Post return :" + JSON.stringify(data));
+                    if (data.retCode != 0) {
+                        softAlert(data.retMsg);
+                    }
+                    else {
+                        var retObj = data.hasOwnProperty('items') ? data.items : data.retMsg;
+                        callback(jsonData, retObj); //softAlert(data.retMsg);
+                    }
+                },
+                error: function (xhr, textStatus) {
+                    console.log(textStatus);
+                    Logger("Ajax return error:" + textStatus);
+                }
+            });
+        }
+
+    </script>
+</head>
+<body style="background-color:darkgray;">
+    <div id="toolbar">
+        <!--border="1" cellspacing="0" bordercolor="gray"-->
+        <table>
+            <tr>
+                <td style="text-align:center;width:790px; height:45px;"><span style="font-weight:bold; font-size:22px;">领先科技外呼机器人管理测试页</span> </td>
+                <td style="text-align:center;width:225px;"><button id="btnClearLog" onclick="$('#log').html('')" style="width:100px;height:28px;">清除日志</button></td>
+            </tr>
+        </table>
+        <table border="1" cellspacing="0" bordercolor="gray">
+            <tr style="height:35px;">
+                <td style="text-align:right;width:100px;"> <span>AppKey: </span></td>
+                <td style="text-align:left;" colspan="3"><input id="tbAppKey" type="text" style="width:350px;text-align:center;" value="1036c25391424fd78edc98eb2dd2489a" /></td>
+            </tr>
+            <tr style="height:40px;">
+                <td style="text-align:right;width:100px;" rowspan="4"><span> 机器人信息: </span></td>
+                <td style="text-align:left;" colspan="3">
+                    <div id="divRobots"></div>
+                </td>
+            </tr>
+            <tr>
+                <td style="text-align:left;">
+                    <span> 昵　称:</span><input id="tbNickname" type="text" style="width:95px;text-align:center;" value="林昆" />
+                    <span>工作日:</span><input id="tbWorkDays" type="text" style="width:125px;text-align:center;" value="" />
+                </td>
+                <td style="text-align:left;">
+                    <span>时&nbsp;间&nbsp;段:</span><input id="tbSections" type="text" style="width:150px;text-align:center;" value="" />
+                    <input type="checkbox" id="cbxWakenMode" /><label for="cbxWakenMode" id="lblWakenMode">立即唤醒</label>
+                </td>
+                <td style="text-align:left;"><span>uuid:</span><span id="robot_uuid"></span></td>
+            </tr>
+            <tr style="height:30px;">
+                <!--C:\AilinkSWITCH_X64_20170215\AppServer\Sounds\2b73d5abcf50628ec8e4721604ffc915.wav-->
+                <!--http://192.168.1.92:8888/maotai.mp3-->
+                <!--贵宾您好，这里是杭州领先科技有限公司自主研发的“电话智能外呼机器人”为您服务。该功能可以实现无人值机对话，实现全自助的语音交互服务，通过语音识别技术，根据行业话术模板智能匹配需要进行应答的内容，声情并茂的回答客户关心的问题，并可以根据回答内容自动标记客户的等级分类，帮助您快速、精准的定位客户，实现客户价值最大化。实现这样的一套系统，不需要您花费一分钱，在线租赁使用，效果付费，强烈推荐您的使用！-->
+                <td><span> 开场白:</span><input id="tbPrologue" type="text" style="width:287px;text-align:center;" value="C:\AilinkSWITCH_X64_20170215\AppServer\Sounds\2b73d5abcf50628ec8e4721604ffc915.wav" /></td>
+                <td><span> ASR&nbsp;回调:</span><input id="tbAsrCallback" type="text" style="width:250px;text-align:center;" value="http://192.168.1.253:8888/robot.ashx?operate=asr" /></td>
+                <td><span> 结束回调:</span><input id="tbEndCallback" type="text" style="width:250px;text-align:center;" value="http://192.168.1.253:8888/robot.ashx?operate=end" /></td>
+            </tr>
+            <tr style="height:30px;">
+                <td><span> 属　主:</span><input id="tbOwner" type="text" style="width:287px;text-align:center;" value="" /></td>
+                <td>
+                    <span> 空闲间隔:</span><input id="tbInterval" type="text" style="width:30px;text-align:center;" value="5" /><span>(秒)</span>
+                    <span> 外显号码:</span><input id="tbDisplay" type="text" style="width:80px;text-align:center;" value="56020504" />
+                </td>
+                <td style="text-align:left;"><span id="robot_state"></span>&nbsp;<button id="btnCreateRobot" style="width:100px;height:28px;">新建机器人</button></td>
+            </tr>
+            <tr style="height:40px;">
+                <td style="text-align:center;width:100px;"> <span>基本操作:</span></td>
+                <td style="text-align:left;" colspan="3">
+                    <button id="btnQueryRobot" style="width:100px;height:28px;">查询机器人</button>
+                    <button id="btnTerminateRobot" style="width:100px;height:28px;">终止机器人</button>
+                    <button id="btnWakenRobot" style="width:100px;height:28px;">唤醒机器人</button>
+                    <button id="btnCancelRobot" style="width:100px;height:28px;">取消任务</button>
+                    <button id="btnQueryAppKey" style="width:100px;height:28px;">AppKey查询</button>
+                    <button id="btnQueryStatu" style="width:100px;height:28px;">号码状态查询</button>
+
+                </td>
+            </tr>
+            <tr>
+                <td style="text-align:center;width:100px;"> <span>任务号码:</span></td>
+                <td style="text-align:center;" colspan="2"><textarea id="tvPhones" style="width:680px;text-align:left;height:100px;">13958077789;15958168522;13958179591;13757125763;15868478256;</textarea></td>
+                <td style="vertical-align:bottom">
+                    <button id="btnAssignRobot" style="width:100px;height:28px;">任务分配</button>
+                </td>
+            </tr>
+            <tr>
+                <td style="text-align:center;width:100px;"> <span>短信发送:</span></td>
+                <td style="text-align:left;" colspan="2">
+                    <table>
+                        <tr>
+                            <td><textarea id="tvSmsInfo" style="width:480px;text-align:left;height:50px;">全世界你最帅，赶紧给约起来！</textarea></td>
+                            <td style="text-align:right;width:200px;">
+                                <span> 目标号码:</span>
+                                <input id="tbSmsPhone" type="text" style="width:100px;text-align:center;" value="13958077789" />
+                                <br />
+                                <button id="btnSendSMS" style="width:100px;height:28px;">发送短信</button>&nbsp;
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="text-align:center;vertical-align:bottom">
+                    <span> 分机号:</span>
+                    <input id="tbExtension" type="text" style="width:75px;text-align:center;" value="8011" />
+                    <br />
+                    <button id="btnGetRecord" style="width:100px;height:28px;">获取录音</button>&nbsp;
+                </td>
+            </tr>
+        </table>
+        </td>
+        </tr>
+        </table>
+    </div>
+    <div id="message">
+        <span id="message_text"></span>
+    </div>
+    <div id="log">
+    </div>
+    <script type="text/javascript">
+        //存储机器人内容
+        var arrRobots = new Array();
+        /*状态中文名称*/
+        var STATUS_CHN_NAME = ['空闲', '拨号中', '放音中', '识别中', '休眠中', '转接中', '', '', '', '离线中'];
+
+        /*
+        通过uuid查找机器人的索引值
+        */
+        function find_robot(uuid) {
+            var index = -1;
+            for (var idx = 0; idx < arrRobots.length; idx++) {
+                if (arrRobots[idx].uuid == uuid) {
+                    index = idx;
+                    break;
+                }
+            }
+            return index;
+        }
+        /*
+        统一添加机器人
+        */
+        function prepare_robot(rb) {
+            //检查机器人是否存在
+            var index = find_robot(rb.uuid);
+            //存在，则返回
+            if (index > -1) {
+                //替换元素
+                arrRobots.splice(index, 1, rb);
+                return;
+            }
+            //创建机器人清单
+            $('#robot_uuid').text(rb.uuid);
+            arrRobots.push(rb);
+            var rbctrl = '<label id="lbl_' + rb.uuid + '"><input name="Robots" type="radio" value="' + rb.uuid + '" id="rb_' + rb.uuid + '"/>' + rb.nickname + '</label>';
+            $('#divRobots').append(rbctrl);
+            //选中事件
+            $("#divRobots label input").live("click", function () {
+                if ($(this).attr('checked') == true) {
+                    var uuid = $(this).attr('value');
+                    $('#robot_uuid').text(uuid);
+                    var idx = find_robot(uuid);
+                    if (idx < 0)
+                        return;
+                    var obj = arrRobots[idx];
+                    $("#tbNickname").val(obj.nickname);
+                    $('#robot_state').text("状态:" + STATUS_CHN_NAME[obj.state]);
+                }
+            });
+        }
+        /*
+        删除机器人
+        */
+        function delete_robot(uuid) {
+            var idx = find_robot(uuid);
+            if (idx < 0)
+                return;
+            //删除数组中的元素
+            var obj = arrRobots.splice(idx, 1);
+            //删除控件
+            var ctrl = $("#divRobots label input").remove("[value=" + uuid + "]");
+            $("#divRobots label").remove("[id=lbl_" + uuid + "]");
+            $('#robot_uuid').text('');
+            $('#robot_state').text('');
+            $("#tbNickname").val('');
+        }
+        //附加事件
+        $(document).ready(function () {
+            $("#btnCreateRobot").click(function () {
+                if ($("#tbAppKey").val() == '') {
+                    softAlert("请输入正确的Appkey！");
+                    return;
+                }
+                if ($("#tbNickname").val() == '') {
+                    softAlert("请输入机器人的昵称！");
+                    return;
+                }
+                if ($("#tbPrologue").val() == '') {
+                    softAlert("请输入该机器人的开场白！");
+                    return;
+                }
+                if ($("#tbAsrCallback").val() == '') {
+                    softAlert("请输入机器人的文本识别回调地址！");
+                    return;
+                }
+                //机器人的json对象
+                var robot = {
+                    code: 3001,
+                    appkey: $("#tbAppKey").val(),
+                    nickname: $("#tbNickname").val(),
+                    prologue: $("#tbPrologue").val(),
+                    asrcallback: $("#tbAsrCallback").val(),
+                    display: $("#tbDisplay").val(),
+                    workday: $("#tbWorkDays").val(),
+                    section: $("#tbSections").val(),
+                    owner: $("#tbOwner").val(),
+                    endcallback: $("#tbEndCallback").val(),
+                    interval: $("#tbInterval").val() * 1,
+                    waken: $('#cbxWakenMode').attr('checked'),
+                };
+                var strRobot = JSON.stringify(robot);
+                //softAlert(strRobot);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                    prepare_robot(retobj);
+                });
+            });
+            //查询机器人
+            $("#btnQueryRobot").click(function () {
+                var info = {
+                    code: 3002,
+                    appkey: $("#tbAppKey").val(),
+                    nickname: $("#tbNickname").val(),
+                    uuid: $('#robot_uuid').text()
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                    prepare_robot(retobj);
+                });
+            });
+            //终止机器人
+            $("#btnTerminateRobot").click(function () {
+                if ($('#robot_uuid').text() == '') {
+                    softAlert("请选择要删除的机器人！");
+                    return;
+                }
+                //
+                var info = {
+                    code: 3003,
+                    appkey: $("#tbAppKey").val(),
+                    nickname: $("#tbNickname").val(),
+                    uuid: $('#robot_uuid').text()
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                    //
+                    var uuid = JSON.parse(jsonobj).uuid;
+                    //删除本地的数据
+                    delete_robot(uuid);
+                    //
+                    var msg = retobj.hasOwnProperty("retMsg") ? retobj.retMsg : retobj + '';
+                    if (retobj.hasOwnProperty("caller_count")) {
+                        msg += "\r\ncaller_count:" + retobj.caller_count;
+                        msg += "\r\ncalled_count:" + retobj.called_count;
+                    }
+                    softAlert(msg);
+                });
+            });
+            //按Appkey查询机器人
+            $("#btnQueryAppKey").click(function () {
+                var info = {
+                    code: 3007,
+                    appkey: $("#tbAppKey").val(),
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                    //删除当前没有的机器人
+                    //当前所有机器人的uuid
+                    var curUuids = new Array();
+                    var newUuids = new Array();
+                    //
+                    $.each(arrRobots, function (idx, o) { curUuids.push(o.uuid); });
+                    //
+                    $.each(retobj, function (idx, o) { newUuids.push(o.uuid); });
+                    //根据uuid进行判断，不存在的直接删除
+                    $.each(curUuids, function (idx, uuid) {
+                        if ($.inArray(uuid, newUuids) < 0)
+                            delete_robot(uuid);
+                    });
+                    //遍历添加
+                    $.each(retobj, function (idx, obj) { prepare_robot(obj); });
+                });
+            });
+            /*唤醒机器人*/
+            $("#btnWakenRobot").click(function () {
+                if ($('#robot_uuid').text() == '') {
+                    softAlert("请选择要唤醒的机器人！");
+                    return;
+                }
+                var info = {
+                    code: 3005,
+                    appkey: $("#tbAppKey").val(),
+                    nickname: $("#tbNickname").val(),
+                    uuid: $('#robot_uuid').text()
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                    softAlert(retobj);
+                });
+            });
+            /*取消任务*/
+            $("#btnCancelRobot").click(function () {
+                if ($('#robot_uuid').text() == '') {
+                    softAlert("请选择要取消任务的机器人！");
+                    return;
+                }
+                var info = {
+                    code: 3006,
+                    appkey: $("#tbAppKey").val(),
+                    nickname: $("#tbNickname").val(),
+                    uuid: $('#robot_uuid').text()
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                    var msg = retobj.hasOwnProperty("retMsg") ? retobj.retMsg : retobj + '';
+                    if (retobj.hasOwnProperty("caller_count")) {
+                        msg += "\r\ncaller_count:" + retobj.caller_count;
+                        msg += "\r\ncalled_count:" + retobj.called_count;
+                    }
+                    softAlert(msg);
+                });
+            });
+            /*分配任务*/
+            $("#btnAssignRobot").click(function () {
+                if ($('#robot_uuid').text() == '') {
+                    softAlert("请选择要分配任务的机器人！");
+                    return;
+                }
+                if ($('#tvPhones').text() == '') {
+                    softAlert("请选择要分配的号码清单！");
+                    return;
+                }
+                var info = {
+                    code: 3004,
+                    appkey: $("#tbAppKey").val(),
+                    uuid: $('#robot_uuid').text(),
+                    nickname: $("#tbNickname").val(),
+                    prologue: $("#tbPrologue").val(),
+                    display: $("#tbDisplay").val(),
+                    workday: $("#tbWorkDays").val(),
+                    section: $("#tbSections").val(),
+                    phones: $('#tvPhones').val().replace(/\r\n/g, ""),
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                    var msg = '任务数量:' + retobj.number;
+                    msg += "\r\n实际添加数量:" + retobj.realCount;
+                    msg += "\r\n当前总数量:" + retobj.totalCount;
+                    msg += "\r\n当前已呼数量:" + retobj.calledCount;
+                    if (retobj.hasOwnProperty("cleaned")) {
+                        var cleaned = retobj.cleaned;
+                        msg += "\r\n取消数量[caller_count=" + cleaned.caller_count + ",called_count=" + cleaned.called_count + "]";
+                    }
+                    softAlert(msg);
+                });
+            });
+            /*查询机器人已呼号码状态*/
+            $("#btnQueryStatu").click(function () {
+                if ($('#robot_uuid').text() == '') {
+                    softAlert("请选择要查询状态的机器人！");
+                    return;
+                }
+                var info = {
+                    code: 3008,
+                    appkey: $("#tbAppKey").val(),
+                    nickname: $("#tbNickname").val(),
+                    uuid: $('#robot_uuid').text()
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                });
+            });
+            /*发送短信*/
+            $("#btnSendSMS").click(function () {
+                if ($('#robot_uuid').text() == '') {
+                    softAlert("请选择要发送短信的机器人！");
+                    return;
+                }
+                if ($('#tbSmsPhone').val() == '') {
+                    softAlert("请输入发送短信的号码！");
+                    return;
+                }
+                if ($('#tvSmsInfo').text() == '') {
+                    softAlert("请输入发送短信的内容！");
+                    return;
+                }
+                var info = {
+                    code: 3010,
+                    trunk: $("#tbDisplay").val(),
+                    phone: $("#tbSmsPhone").val(),
+                    smsinfo: $('#tvSmsInfo').text()
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                });
+            });
+
+            /*获取录音*/
+            $("#btnGetRecord").click(function () {
+                var info = {
+                    code: 3012,
+                    extension: $("#tbExtension").val(),
+                    count: 5
+                };
+                var strRobot = JSON.stringify(info);
+                lxkj_send_packet(strRobot, function (jsonobj, retobj) {
+                });
+            });
+        });
+    </script>
+</body>
+</html>

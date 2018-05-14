@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>领先科技IP电话SDK批量呼叫测试页</title>
+    <link href="jquery-ui.css" rel="stylesheet" type="text/css" />
+    <script language="javascript" type="text/javascript" src="jquery-3.2.1.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery-ui.js"></script>
+    <script language="javascript" content-type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery-ui.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery.tmpl.js"></script>
+</head>
+<body style="background-color:darkgray">
+    <div id="pageTitle" style="width:100%;text-align:center;">
+        <span style="color:gold; font:bold 28px arial,宋体;">领先科技IP集成电话呼叫压力测试</span>
+    </div>
+    <hr />
+    <div>
+        初始分机号:<input id="agentNumber" type="text" style="width:60px;text-align:center;" value="8001" />
+        分机数量:<input id="agentCount" type="text" style="width:40px;text-align:center;" value="2" />
+        呼叫数量:<input id="callNum" type="text" style="width:60px;text-align:center;" value="2000" />
+        初始号码:<input id="initNumber" type="text" style="width:100px;text-align:center;" value="60000000" />
+        间隔时间:<input id="tmrInterval" type="text" style="width:40px;text-align:center;" value="30" /><span>秒</span>
+        <button id="btnBatchCallout" style="width:120px;height:28px;">启动呼叫页面</button>
+    </div>
+    <hr />
+    <div id="message">
+        <span id="message_text"></span>
+    </div>
+    <div id="log">
+
+    </div>
+    <script>
+        Date.prototype.Format = function (fmt) { //author: meizz
+            var o = {
+                "M+": this.getMonth() + 1, //月份
+                "d+": this.getDate(), //日
+                "h+": this.getHours(), //小时
+                "m+": this.getMinutes(), //分
+                "s+": this.getSeconds(), //秒
+                "q+": Math.floor((this.getMonth() + 3) / 3), //季度
+                "S": this.getMilliseconds() //毫秒
+            };
+            if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+            for (var k in o)
+                if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+            return fmt;
+        }
+        //
+        var task_running = false;
+        /*提示对话框*/
+        function softAlert(message, title) {
+            $("#message_text").text(message);
+            $("#message").dialog('option', 'title', title);
+            $("#message").dialog('open');
+        }
+        /*
+       显示日志输出。
+       */
+        function Logger(text) {
+            var now = new Date().Format("yyyy-MM-dd hh:mm:ss.S");
+            $("#log").append("[" + now + "] " + text + "<br/>");
+        }
+
+        function openwin(sUrl,idx) {
+            /*var name="a"+idx;
+            var alink= $("<a id='"+name+"' href='" + sUrl + "' target='_blank'>" + sUrl + "</a>");
+            
+            $("#log").append("序号:" + idx + "地址:").append(alink).append("<br/>");
+            alink.click(function () {
+                window.open($(alink).attr("href"));
+            });
+            alink.click();*/
+            try {
+                //window.open(sUrl);
+                Logger(sUrl);
+                //
+                var newwin = window.open();
+                newwin.location.href = sUrl;
+            }
+            catch (e) {
+                //alert(e);
+            }
+        }
+
+        //添加事件
+        $(document).ready(function () {
+            //初始消息对话框
+            $("#message").dialog({
+                autoOpen: false,
+                resizable: false,
+                buttons: {
+                    "Ok": function () {
+                        $(this).dialog("close");
+                    }
+                }
+            });
+            //启动呼叫页面
+            $("#btnBatchCallout").click(function () {
+                //打开相应数量的页面
+                if (task_running) {
+                    softAlert("外呼工作已经开始，请停止或刷新后再试！", "系统提示");
+                    return;
+                }
+                //参数判断
+                var agent = $("#agentNumber").val() * 1;
+                var count = $("#agentCount").val() * 1;
+                var callnum = $("#callNum").val() * 1;
+                var telno = $("#initNumber").val() * 1;
+                var intvl = $("#tmrInterval").val() * 1;
+
+                if (isNaN(agent) || agent < 1) {
+                    softAlert("分机号不正确！", "系统提示");
+                    return;
+                }
+                if (isNaN(count) || count < 1) {
+                    softAlert("分机数量不正确！", "系统提示");
+                    return;
+                }
+                if (isNaN(callnum) || callnum < 1) {
+                    softAlert("呼叫数量不正确！", "系统提示");
+                    return;
+                }
+                if (isNaN(telno) || telno < 10000000) {
+                    softAlert("初始号码不正确！", "系统提示");
+                    return;
+                }
+                if (isNaN(intvl) || intvl < 1) {
+                    softAlert("间隔不正确！", "系统提示");
+                    return;
+                }
+                //打开页面
+                task_running = true;
+                var now = new Date().Format("yyyy-MM-dd hh:mm:ss.S");
+                Logger('任务开始时间:' + now);
+                //
+                var idx = 0;
+                var sUrl = "";
+                var itvl = setInterval(function () {
+                    if (idx < count) {
+                        sUrl = "index.html?agent=" + agent + "&autologin=true&telno=" + telno + "&num=" + callnum + "&interval=" + intvl + '&rnd=' + idx;
+                        openwin(sUrl,idx);
+                        agent++;
+                        telno += callnum;
+                        idx++;
+                    }
+                    else {
+                        clearInterval(itvl);
+                    }
+                }, 500);
+                //index.html?agent=8001&autologin=true&telno=60005000&num=200&interval=30
+                //for (var idx = 0; idx < count; idx++) {
+                //    var sUrl = "index.html?agent=" + agent + "&autologin=true&telno=" + telno + "&num=" + callnum + "&interval=" + intvl;
+                //    setTimeout("openwin('" + sUrl + "')", 500 * (idx + 1));
+                //    agent++;
+                //    telno += callnum;
+                //}
+            });
+        });
+    </script>
+</body>
+</html>

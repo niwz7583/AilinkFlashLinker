@@ -1,0 +1,226 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>语音宣告SDK测试Demo页</title>
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="-1">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="cache-control" content="no-store">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />  <!--IE11下的支持-->
+    <!--步骤1、引用以下5个js文件-->
+    <link href="jquery-ui.css" rel="stylesheet" type="text/css" />
+    <script language="javascript" type="text/javascript" src="jquery-3.2.1.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery-ui.js"></script>
+    <script language="javascript" content-type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery-ui.min.js"></script>
+    <script language="javascript" type="text/javascript" src="jquery.tmpl.js"></script>
+    <script language="javascript" content-type="text/javascript">
+        Date.prototype.Format = function (fmt) { //author: meizz
+            var o = {
+                "M+": this.getMonth() + 1, //月份
+                "d+": this.getDate(), //日
+                "h+": this.getHours(), //小时
+                "m+": this.getMinutes(), //分
+                "s+": this.getSeconds(), //秒
+                "q+": Math.floor((this.getMonth() + 3) / 3), //季度
+                "S": this.getMilliseconds() //毫秒
+            };
+            if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+            for (var k in o)
+                if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+            return fmt;
+        }
+
+        /*
+       显示日志输出。
+       */
+        function Logger(text) {
+            var now = new Date().Format("yyyy-MM-dd hh:mm:ss.S");
+            $("#log").append("[" + now + "] " + text + "<br/>");
+            console.log("[" + now + "] " + text);
+        }
+        /*提示对话框*/
+        function softAlert(message, title) {
+            $("#message_text").text(message);
+            $("#message").dialog('option', 'title', title);
+            $("#message").dialog('open');
+        }
+        /********************************************************************************************************************************************************************/
+        //页面初始化加载
+        $(document).ready(function () {
+            //初始消息对话框
+            $("#message").dialog({
+                autoOpen: false,
+                resizable: false,
+                buttons: {
+                    "Ok": function () {
+                        $(this).dialog("close");
+                    }
+                }
+            });
+        });
+    </script>
+
+</head>
+<body style="background-color:darkgray;">
+    <div id="toolbar">
+        <table>
+            <tr>
+                <td style="text-align:center"></td>
+                <td style="text-align:center"><input type="checkbox" id="cbxValidateMode" checked="checked" /><label for="cbxValidateMode" id="lblValidateMode">验证码模式</label><button id="btnClearLog" onclick="$('#log').html('')" style="width:100px;height:28px;">清除日志</button></td>
+            </tr>
+            <tr><td style="text-align:right; width:120px;">接口地址:</td><td><input id="tbUrlAddress" type="text" style="width:500px;text-align:left;" value="http://192.168.1.96:8041/voicecode.ashx?flag=lxkj123-=" /></td></tr>
+            <tr><td style="text-align:right; width:120px;">APIKey:</td><td><input id="tbApikey" type="text" style="width:500px;text-align:left;" value="bc522d4fa2e0d943a2e28bd0daad6d36" /></td></tr>
+            <tr><td style="text-align:right; width:120px;"> APISecret:</td><td><input id="tbApiSecret" type="text" style="width:500px;text-align:left;" value="GBp4Wo9b98" /></td></tr>
+            <tr><td style="text-align:right; width:120px;"> 语音内容:</td><td><input id="tbContent" type="text" style="width:400px;text-align:left;" value="" /><button id="btnEnter" style="width:100px;height:28px;">确定</button></td></tr>
+            <tr>
+                <td style="text-align:right; width:120px;"> 目标号码:</td>
+                <td>
+                    <input id="tbPhonenumber" type="text" style="width:200px;text-align:left;" value="913958077789" />
+                    <button id="btnExecute" style="width:100px;height:28px;">获取验证码</button>
+                    <button id="btnRetrieve" style="width:100px;height:28px;">获取数据结果</button>
+                </td>
+            </tr>
+            <tr><td></td><td style="text-align:center"></td></tr>
+        </table>
+    </div>
+    <hr />
+    <div id="message">
+        <span id="message_text"></span>
+    </div>
+    <div id="log">
+    </div>
+    <script language="javascript" content-type="text/javascript">
+        var svCode = "";
+        //4008208864
+        $(document).ready(function () {
+            //获取验证码
+            $("#btnExecute").click(function () {
+                if ($("#tbUrlAddress").val() == '') {
+                    softAlert("请输入接口地址后再试！");
+                    return;
+                }
+                if ($("#tbApikey").val() == '') {
+                    softAlert("请输入APIKey后再试！");
+                    return;
+                }
+                if ($("#tbApiSecret").val() == '') {
+                    softAlert("请输入APISecret后再试！");
+                    return;
+                }
+                if ($("#tbPhonenumber").val() == '') {
+                    softAlert("请输入目标号码后再试！");
+                    return;
+                }
+
+                var apiUrl = $("#tbUrlAddress").val();
+                var apiArgs = {
+                    account: $("#tbApikey").val(),
+                    secretkey: $("#tbApiSecret").val(),
+                    mobile: $("#tbPhonenumber").val(),
+                    content: $("#tbContent").val()
+                };
+                //
+                $.ajax({
+                    url: apiUrl,
+                    data: apiArgs,
+                    type: 'GET',
+                    dataType: 'json',
+                    beforeSend: function (xhr) {
+                        $("#btnEnter").hide();
+                    },
+                    success: function (data, textStatus, jqXHR) {
+                        console.log(data);
+                        Logger("retCode:" + data.retCode + "  retMsg:" + data.retMsg + " retContent:" + data.retContent);
+                        if (data.retCode == 200) {
+                            svCode = data.retContent;
+                            if ($('#cbxValidateMode').attr('checked')) {
+                                $("#btnEnter").show();
+                            }
+                            else {
+                                if (data.retContent != null)
+                                    $("#tbContent").val(svCode);
+                            }
+                        }
+                    },
+                    error: function (xhr, textStatus) {
+                        console.log(textStatus);
+                    }
+                });
+            });
+            //模式切换
+            $('#cbxValidateMode').change(function () {
+                var bChecked = $('#cbxValidateMode').attr('checked');
+                if (bChecked) {
+                    $("#lblValidateMode").text("验证码模式");
+                }
+                else {
+                    $("#lblValidateMode").text("语音宣告模式");
+                    $("#btnEnter").hide();
+                }
+            });
+            //验证结果
+            $("#btnEnter").click(function () {
+                if ($("#tbContent").val() == '') {
+                    $("#tbContent").focus();
+                    softAlert("请输入验证码！");
+                    return;
+                }
+                if ($("#tbContent").val() == svCode) {
+                    softAlert("验证码正确，验证通过！");
+                }
+                else {
+                    softAlert("验证码不正确，请重新输入！");
+                }
+            });
+            //获取数据结果
+            $('#btnRetrieve').click(function () {
+                if ($("#tbUrlAddress").val() == '') {
+                    softAlert("请输入接口地址后再试！");
+                    return;
+                }
+                if ($("#tbApikey").val() == '') {
+                    softAlert("请输入APIKey后再试！");
+                    return;
+                }
+                if ($("#tbApiSecret").val() == '') {
+                    softAlert("请输入APISecret后再试！");
+                    return;
+                }
+                var apiUrl = $("#tbUrlAddress").val();
+                var apiArgs = {
+                    account: $("#tbApikey").val(),
+                    secretkey: $("#tbApiSecret").val(),
+                    operate: "retrive",
+                    uuid: $("#tbContent").val()
+                };
+                $.ajax({
+                    url: apiUrl,
+                    data: apiArgs,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (data, textStatus, jqXHR) {
+                        console.log(data);
+                        //逐条输出
+                        Logger("共获取" + data.length + '条数据.');
+                        for (var idx = 0; idx < data.length; idx++) {
+                            var str = "";
+                            var o = data[idx];
+                            for (var p in o) {
+                                str += p + '=' + o[p] + ';'
+                            }
+                            Logger(str);
+                        }
+                    },
+                    error: function (xhr, textStatus) {
+                        console.log(textStatus);
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
